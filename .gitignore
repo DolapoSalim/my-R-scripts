@@ -1,4 +1,13 @@
+HEAD
+__pycache__/
+*.pyc
+*.csv
+*.xlsx
+.Rhistory
+venv/
+data/
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+a7319e1e33a304cf2a834893a569023490dc6b13
