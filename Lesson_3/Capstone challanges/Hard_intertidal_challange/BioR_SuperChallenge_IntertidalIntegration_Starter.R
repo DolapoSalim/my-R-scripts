@@ -57,4 +57,6 @@ biomass_data_clean <- biomass_data_clean %>%
   mutate(qc_non_numeric_biomass = ifelse(is.na(biomass) | biomass == "" | biomass == "ND", TRUE, FALSE))
 View(biomass_data_clean)
 
-?mutate
+biomass_data_clean %>%
+  group_by(qc_non_numeric_biomass) %>%
+  summarise(count = n())
