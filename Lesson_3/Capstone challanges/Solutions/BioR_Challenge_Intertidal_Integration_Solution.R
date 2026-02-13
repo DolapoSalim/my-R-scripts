@@ -6,11 +6,11 @@ library(readxl)
 library(lubridate)
 library(broom)
 
-data_dir <- "Lesson_3/Capstone challanges/Hard_intertidal_challange/data"
+data_dir <- "~/your_path/Hard_intertidal_challange/data"
+data_dir <- "~/Documents/BioR/2025_2026/PhD/Class_3/Hard_intertidal_challange/data"
 out_dir  <- file.path(data_dir, "outputs")
 plot_dir <- file.path(out_dir, "plots")
 dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
-
 
 # ----------------------------
 # Helpers
@@ -88,8 +88,7 @@ biomass_long <- biomass_wide %>%
 # ----------------------------
 # B) Quadrat metadata
 # ----------------------------
-
-meta_raw <- read_xlsx("Lesson_3/Capstone challanges/Hard_intertidal_challange/data/quadrat_meta.xlsx")
+meta_raw <- read_excel("~/quadrat_meta.xlsx")
 meta_clean <- meta_raw %>%
   mutate(
     # Convert canopy_cover_pct to a clean numeric value.
