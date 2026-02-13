@@ -1,6 +1,7 @@
 # Load an .RData file (can contain one or more objects).
 # After this, use ls() to see what objects were loaded.
-load(file = "beluga_data.rdata")
+getwd()
+load(file = "Lesson_4/beluga_data.rdata")
 ls()
 
 # ------------------------------------------------------------
@@ -80,7 +81,7 @@ beluga_df <- as.data.frame(beluga)
 # Select only a few columns we care about (key, species name, coords, year, count, country)
 # NOTE: this should be beluga$data %>% select(...), not beluga %>% select(...),
 # unless beluga itself is already a data frame.
-beluga_simp <- beluga %>%
+beluga_simp <- beluga$data %>%
   dplyr::select(key, name, decimalLatitude, decimalLongitude,
                 year, individualCount, country)
 
@@ -95,7 +96,7 @@ beluga_simp <- beluga %>%
 # - either beluga_PLD is your population dataset
 # - or beluga_LPD is your population dataset
 
-beluga.pop <- beluga_PLD %>%   # <-- check this object exists (maybe beluga_LPD?)
+beluga_pop <- beluga_PLD %>%   # <-- check this object exists (maybe beluga_LPD?)
   dplyr::filter(Genus == "Delphinapterus" & Species == "leucas") %>%
   # Convert wide year columns (e.g., X1950...X2020) to long format
   pivot_longer(
@@ -113,18 +114,20 @@ beluga.pop <- beluga_PLD %>%   # <-- check this object exists (maybe beluga_LPD?
   dplyr::filter(length(unique(year)) > 4) %>%
   ungroup()
 
+
+View(beluga_pop)
 # This prints structure of sea otter population object,
 # but you created beluga.pop above. Likely meant:
-str(beluga.pop)
+str(beluga_pop)
 
 # Convert year column from strings like "X2010" -> 2010
-beluga.pop$year <- parse_number(beluga.pop$year)
+beluga_pop$year <- parse_number(beluga_pop$year)
 
 # ------------------------------------------------------------
 # Fit one linear model per population and extract slopes
 # ------------------------------------------------------------
 
-beluga.slopes <- beluga.pop %>%
+beluga_slopes <- beluga_pop %>%
   # Group by population identity + coordinates
   group_by(Location, Latitude, Longitude, ID) %>%
 
@@ -147,7 +150,7 @@ beluga.slopes <- beluga.pop %>%
 
 # For analysis and plotting, we often need the intercept and slopes to be columns, not rows
 # Format data frame with model outputs
-beluga.slopes <- beluga.slopes %>%
+beluga_slopes <- beluga_slopes %>%
   dplyr::select(Location, Latitude, 
                 Longitude, ID, term, estimate) %>%  
   # Select the columns we need
@@ -159,7 +162,7 @@ beluga.slopes <- beluga.slopes %>%
 
 # Create a map of beluga occurrences and print it immediately
 # (the parentheses + "<-" assign the plot to beluga.map AND display it)
-(beluga.map <- ggplot(beluga_simp, aes(x = decimalLongitude, y = decimalLatitude)) +
+(beluga_map <- ggplot(beluga_simp, aes(x = decimalLongitude, y = decimalLatitude)) +
     
     # Add a high-resolution world outline (from mapdata)
     # ylim limits latitude to the Arctic/temperate region where belugas occur
@@ -176,17 +179,17 @@ beluga.slopes <- beluga.slopes %>%
     
     # Plot occurrence points (each row = one observation)
     # alpha controls transparency: 0 = fully transparent, 1 = fully opaque
-    geom_point(alpha = 0.5, size = 2, colour = "aquamarine3")
+    geom_point(alpha = 0.5, size = 0.5, colour = "aquamarine3")
 )
 
-ggplotly(beluga.map, tooltip = "all")
+ggplotly(beluga_map, tooltip = "all")
 
 # Save the beluga map to a PDF file.
 # - dpi is mainly relevant for raster outputs (png/jpg), but harmless for pdf
 # - useDingbats=FALSE avoids font-symbol issues in some PDF viewers/journals
 ggsave(
-  plot = beluga.map,                  # <- save the plot object you created
-  filename = "beluga.map.pdf",
+  plot = beluga_map,                  # <- save the plot object you created
+  filename = "beluga_map.pdf",
   dpi = 1200,
   useDingbats = FALSE,
   width = 18, height = 11, units = "cm"

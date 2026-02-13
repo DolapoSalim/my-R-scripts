@@ -42,6 +42,11 @@ beluga_simp <- beluga$data %>%
                 year, individualCount, country)
 
 
+icon <-readPNG("Lesson_4/beluga_icon.png")
+
+#rasterize the image
+icon <- rasterGrob(icon, interpolate = TRUE)
+
 
 beluga_map <- ggplot(beluga_simp, aes(x = decimalLongitude, y = decimalLatitude)) +
     borders(
@@ -52,11 +57,11 @@ beluga_map <- ggplot(beluga_simp, aes(x = decimalLongitude, y = decimalLatitude)
       size   = 0.3
     ) +
     theme_map() +
+    annotation_custom(icon, xmin = -200, xmax = -110, ymin = 15, ymax = 35) +
     geom_point(alpha = 0.5, size = 0.5, colour = "aquamarine3")
 
 ggplotly(beluga_map, tooltip = "all")
 
-
-
+?ggplotly
 
 
