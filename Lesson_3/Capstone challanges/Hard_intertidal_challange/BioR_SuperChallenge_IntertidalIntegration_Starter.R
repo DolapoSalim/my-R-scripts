@@ -3,20 +3,11 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 library(broom)
-library(RColorBrewer)
 
-data_dir <- "Lesson_3/Capstone challanges/Hard_intertidal_challange/data"
+data_dir <- "/mnt/data/BioR_SuperChallenge_Intertidal_20260209_200030"
 out_dir  <- file.path(data_dir, "outputs")
 plot_dir <- file.path(out_dir, "plots")
 dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
-
-
-#Input all data
-asv_data <- read.csv(file.path(data_dir, "asv_table.csv"), header = TRUE)
-biomass_data <- read.csv(file.path(data_dir, "biomass_wide.csv"), header = TRUE)
-loggerMap_data <- read.csv(file.path(data_dir, "logger_map.csv"), header = TRUE)
-loggerRaw_data <- read.csv(file.path(data_dir, "logger_raw.csv"), header = TRUE)
-quadratMeta_data <- read_xlsx(file.path(data_dir, "quadrat_meta.xlsx"), sheet = 1)
 
 #Clean Data
 day_7 <- biomass_data$day_7
