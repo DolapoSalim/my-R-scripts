@@ -26,6 +26,7 @@ library(scholar)
 library(stringr)
 library(wordcloud)
 library(tm)
+library(ggplot2)
 
 
 
@@ -135,22 +136,40 @@ wordcloud(docs, colors = "aquamarine")
 
 ###TEXT MINING
 
+# function to add three numbers
+add_three <- function(a, b, c) {
+  return(a + b + c)
+}
+
+#calling the function
+result <- add_three(2, 3, 5)
+print(result)
 
 
+p1 <- c(5,3)
+p2 <- c(2,2)
+
+euc_dist <- function(p1, p2) {
+  sqrt((p2[1] - p1[1])^2 + (p2[2] - p1[2])^2)
+}
+
+print(euc_dist(p1, p2))
 
 
+x11()
+plot(c(1:5),c(1:5))
+locator(2)
+
+#geerate a data and plot it, then click on two points to measure the distance between them
+gen_data <- matrix(runif(50), nrow = 25, ncol = 2)
+x11()
+plot(gen_data, xlab = "X", ylab = "Y", cex = 2, col = "blue")
 
 
+points_clicked <- locator(n = 2)
+p1 <- c(points_clicked$x[1], points_clicked$y[1])
+p2 <- c(points_clicked$x[2], points_clicked$y[2])
 
 
+print(euc_dist(p1, p2))
 
-
-
-
-
-
-#euclideanall_words#euclidean_distance <- function(p1, p2) {
- # sqrt((p2[1] - p1[1])^2 + (p2[2] - p1[2])^2)
-#}
-
-# print(euclidean_distance(c(0, 0), c(3, 4)))
