@@ -1,0 +1,11 @@
+Package: add_three
+Type: Package
+Title: Arithmetic
+Version: 0.9
+Authors@R: c(person(given="Dolapo Salim", family="Olatoye",email = "dolaposalim@gmail.com", role=c("aut", "cre")))
+Description: Add description
+Depends: R (>= 4.5.1)
+Imports: NIL
+License: GPL-2
+Author: Dolapo Salim Olatoye [aut, cre],
+Maintainer: Dolapo Salim Olatoye <dolaposalim@gmail.com>
