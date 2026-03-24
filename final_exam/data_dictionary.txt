@@ -1,0 +1,26 @@
+Dataset B — Drone + field survey + logger (ecological / technology)
+Files:
+  - biomass_wide.csv (field biomass, WIDE format, messy sample_id, ND, duplicates)
+  - drone_ndvi.csv   (drone NDVI by site/plot/date; duplicates per plot-date; mixed date formats)
+  - logger_raw.csv   (many timestamped readings per site; timestamps in mixed formats; some missing)
+  - site_meta.csv    (plot-level metadata; canopy % includes impossible values; duplicates; plot ID drift)
+
+Keys / join targets:
+  - biomass_wide: site/treat/plot/rep embedded in sample_id (needs parsing)
+  - drone_ndvi: site + plot + date (needs date parsing + duplicate handling)
+  - logger_raw: site + timestamp → aggregate to day to join with biomass day
+  - site_meta: site + plot (plot formatting drift: P01 vs P1)
+
+Intended pitfalls:
+  - 'ND' strings in biomass columns; numeric parsing required
+  - duplicated records (biomass duplicate row; drone duplicates per plot-date; meta duplicates)
+  - mixed separators/case/trailing spaces in sample_id → join failures unless standardised
+  - mixed date formats (YYYY-MM-DD vs DD/MM/YYYY)
+  - impossible canopy values (>100%) and NDVI slightly out of range
+  - logger needs aggregation to day (mean humidity/temp per site x day)
+
+Suggested outputs:
+  - biomass_long tidy table (site, treat, plot, rep, day, biomass + QC flags)
+  - aggregated logger_day (site, day, mean_humidity/temp)
+  - drone_day (site, plot, day or date) summarised across duplicate flights
+  - joined analysis table + plots (raw + summary/uncertainty), and per-site plots (for loop)
