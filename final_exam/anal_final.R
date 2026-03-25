@@ -227,8 +227,8 @@ message("Drone readings: ", nrow(drone_day))
 
 
 ## JOIN ALL DATA
-# Convert drone dates to day index
-# Then join: biomass × logger × drone all on site + plot + day
+# Converted drone dates to day index
+# Then joined biomass × logger × drone all on site + plot + day
 # This allows comparing biomass, temperature, and NDVI on the same day
 
 
@@ -369,64 +369,66 @@ print(models_combined)
 color_treat <- c("CTRL" = "#2E86AB", "HEAT" = "#A23B72")
 color_site <- c("SITE1" = "#06A77D", "SITE2" = "#D62828")
 
-# Plot 1: Biomass time series with treatment colors
+# Plot 1: Biomass response over time (aggregated by site + treatment)
 p1 <- dat %>%
-  group_by(site, plot, treat, day) %>%
+  group_by(site, treat, day) %>%
   summarise(mean_biomass = mean(biomass, na.rm = TRUE),
             se_biomass = sd(biomass, na.rm = TRUE) / sqrt(n()),
             .groups = "drop") %>%
   ggplot(aes(x = day, y = mean_biomass, color = treat, fill = treat)) +
   geom_line(size = 1.2) +
-  geom_point(size = 3, shape = 21, color = "black", stroke = 1) +
+  geom_point(size = 4, shape = 21, color = "black", stroke = 1) +
   geom_errorbar(aes(ymin = mean_biomass - se_biomass, 
                     ymax = mean_biomass + se_biomass), 
                 width = 1, size = 0.8, alpha = 0.6) +
-  facet_grid(site ~ plot) +
+  facet_wrap(~ site, scales = "free_y") +
   scale_color_manual(values = color_treat, name = "Treatment") +
   scale_fill_manual(values = color_treat, name = "Treatment") +
   labs(x = "Day", y = "Biomass (mean ± SE)", title = "Biomass Response Over Time") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        strip.text = element_text(size = 11, face = "bold"))
+
+ggsave(file.path(plot_dir, "01_biomass_timeseries_not_per_plot.png"), p1, 
+       width = 10, height = 5, dpi = 300)
+
+# Plot 2: Biomass vs Temperature (separated by treatment)
+p2 <- dat %>%
+  ggplot(aes(x = mean_temp_c, y = biomass, color = treat, fill = treat)) +
+  geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.2, size = 1.2) +
+  facet_grid(treat ~ site) +
+  scale_color_manual(values = color_treat, name = "Treatment") +
+  scale_fill_manual(values = color_treat, name = "Treatment") +
+  labs(x = "Mean Temperature (°C)", y = "Biomass", 
+       title = "Biomass vs Daily Mean Temperature") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        strip.text = element_text(size = 11, face = "bold"))
+
+ggsave(file.path(plot_dir, "02_biomass_vs_temperature2.png"), p2, 
+       width = 11, height = 6, dpi = 300)
+
+
+# Plot 3: Biomass vs NDVI (separated by treatment)
+p3 <- dat %>%
+  ggplot(aes(x = ndvi, y = biomass, color = treat, fill = treat)) +
+  geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.2, size = 1.2) +
+  facet_grid(treat ~ site) +
+  scale_color_manual(values = color_treat, name = "Treatment") +
+  scale_fill_manual(values = color_treat, name = "Treatment") +
+  labs(x = "NDVI", y = "Biomass", 
+       title = "Biomass vs Drone NDVI") +
   theme_classic() +
   theme(legend.position = "bottom",
         plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
         strip.text = element_text(size = 11, face = "bold"))
 
-ggsave(file.path(plot_dir, "01_biomass_timeseries.png"), p1, 
-       width = 12, height = 8, dpi = 300)
-
-
-# Plot 2: Biomass vs Temperature (colored by site)
-p2 <- dat %>%
-  ggplot(aes(x = mean_temp_c, y = biomass, color = site, fill = site)) +
-  geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, alpha = 0.2, size = 1.2) +
-  facet_wrap(~ site, scales = "free") +
-  scale_color_manual(values = color_site) +
-  scale_fill_manual(values = color_site) +
-  labs(x = "Mean Temperature (°C)", y = "Biomass", 
-       title = "Biomass vs Temperature by Site") +
-  theme_classic() +
-  theme(legend.position = "none",
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        strip.text = element_text(size = 11, face = "bold"))
-
-ggsave(file.path(plot_dir, "02_biomass_vs_temperature.png"), p2, 
-       width = 11, height = 5, dpi = 300)
-
-
-# Plot 3: Biomass vs NDVI (colored by treatment)
-p3 <- dat %>%
-  ggplot(aes(x = ndvi, y = biomass, color = treat, fill = treat)) +
-  geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, alpha = 0.2, size = 1.2) +
-  facet_wrap(~ site, scales = "free") +
-  scale_color_manual(values = color_treat, name = "Treatment") +
-  scale_fill_manual(values = color_treat, name = "Treatment") +
-  labs(x = "NDVI", y = "Biomass", 
-       title = "Biomass vs Drone NDVI by Treatment") +
-  theme_classic()
-
-ggsave(file.path(plot_dir, "03_biomass_vs_ndvi.png"), p3, 
-       width = 11, height = 5, dpi = 300)
+ggsave(file.path(plot_dir, "03_biomass_vs_ndvi2.png"), p3, 
+       width = 11, height = 6, dpi = 300)
 
 
 # Plot 4: Predicted vs Observed (Combined Model)
@@ -445,10 +447,9 @@ p4 <- dat_with_pred %>%
   ggplot(aes(x = predicted, y = biomass, color = treat, fill = treat)) +
   geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray40", size = 1) +
-  facet_wrap(~ site) +
+  facet_grid(treat ~ site) +
   scale_color_manual(values = color_treat, name = "Treatment") +
   scale_fill_manual(values = color_treat, name = "Treatment") +
-  coord_equal(xlim = c(3, 4.5), ylim = c(3, 4.5)) +
   labs(x = "Predicted Biomass", y = "Observed Biomass",
        title = "Combined Model: Predicted vs Observed") +
   theme_classic() +
@@ -456,5 +457,14 @@ p4 <- dat_with_pred %>%
         plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
         strip.text = element_text(size = 11, face = "bold"))
 
-ggsave(file.path(plot_dir, "04_predicted_vs_observed.png"), p4, 
-       width = 11, height = 5, dpi = 300)
+ggsave(file.path(plot_dir, "04_predicted_vs_observed2.png"), p4, 
+       width = 11, height = 6, dpi = 300)
+
+
+
+## EXPORT DATA
+write_csv(dat, file.path(output_dir, "clean_master.csv"))
+write_csv(qc_summary, file.path(output_dir, "qc_report.csv"))
+write_csv(models_temp, file.path(output_dir, "temp_models.csv"))
+write_csv(models_ndvi, file.path(output_dir, "ndvi_models.csv"))
+write_csv(models_combined, file.path(output_dir, "combined_models.csv"))
