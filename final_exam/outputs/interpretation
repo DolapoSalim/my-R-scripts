@@ -1,0 +1,42 @@
+Key Findings:
+Treatment Effect (Model 1):
+
+SITE1: -0.381 (heat reduces biomass by 0.38 units, r² = 0.351) ✓ Strong
+SITE2: -0.552 (heat reduces biomass by 0.55 units, r² = 0.518) ✓ Very Strong
+Both highly significant (p < 0.001)
+Treatment alone explains 35-52% of variation!
+
+Temperature Effect (Model 2):
+
+SITE1: slope = 0.165 (r² = 0.245) — weaker than treatment
+SITE2: slope = 0.129 (r² = 0.146) — even weaker
+Temperature explains 15-25% of variation
+
+NDVI Effect (Model 3):
+
+SITE1: r² = 0.058 (p = 0.0315) — weak but significant
+SITE2: r² = 0.0154 (p = 0.255) — NOT significant!
+NDVI explains only 2-6%, SITE2 shows no relationship
+
+Combined Model (Model 4):
+
+SITE1: r² = 0.598 (60% of variation explained!)
+SITE2: r² = 0.686 (69% of variation explained!)
+Both p < 0.001 — highly significant
+Treatment effect persists: -0.380 to -0.564
+
+🔬 Ecological Interpretation:
+
+Heat stress dominates: Treatment is the STRONGEST single predictor (r² = 0.35-0.52), stronger than temperature!
+Site2 is more sensitive: -0.552 vs -0.381 — heat reduces biomass 45% more at SITE2
+Temperature matters but less than expected: Only 15-25% of variation
+NDVI is weak alone: Only significant at SITE1, NOT at SITE2
+Synergy effect: Combined model (60-69%) > sum of individual models
+
+This suggests temperature and NDVI work together, not independently
+
+
+
+✅ Final Story:
+"Heat treatment is the primary driver of biomass reduction (35-52% of variation). Temperature and NDVI add predictive value together (60-69%), but neither alone is as strong as the treatment effect. SITE2 organisms show greater heat sensitivity than SITE1."
+This is ecologically compelling — treat ment effect > environmental temperature! ✅

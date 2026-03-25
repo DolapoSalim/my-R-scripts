@@ -300,11 +300,27 @@ print(join_summary)
 
 ## MODELLING/ANALYSIS
 
-# Model 1: Biomass ~ Temperature
+# Model 1: Treatment Effect Only (Biomass ~ Treatment)
+models_treat_only <- dat %>%
+  filter(!is.na(biomass)) %>%
+  group_by(site) %>%
+  nest() %>%
+  mutate(
+    fit = map(data, ~ lm(biomass ~ treat, data = .x)),
+    glance_out = map(fit, broom::glance),
+    coef_treat = map_dbl(fit, ~ coef(.x)["treatHEAT"]),
+    r2 = map_dbl(glance_out, ~ .x$r.squared),
+    p_value = map_dbl(glance_out, ~ .x$p.value),
+    n_obs = map_int(glance_out, ~ as.integer(.x$nobs))
+  ) %>%
+  select(site, n_obs, coef_treat, r2, p_value) %>%
+  ungroup()
+
+# Model 2: Temperature Effect (Biomass ~ Mean Temperature)
 models_temp <- dat %>%
   filter(!is.na(biomass), !is.na(mean_temp_c)) %>%
   group_by(site) %>%
-  nest() %>% # To create separate dataset per site
+  nest() %>%
   mutate(
     fit = map(data, ~ lm(biomass ~ mean_temp_c, data = .x)),
     glance_out = map(fit, broom::glance),
@@ -317,9 +333,8 @@ models_temp <- dat %>%
   select(site, n_obs, slope, intercept, r2, p_value) %>%
   ungroup()
 
-print(models_temp)
 
-# Model 2: Biomass ~ NDVI
+# Model 3: NDVI Effect (Biomass ~ NDVI)
 models_ndvi <- dat %>%
   filter(!is.na(biomass), !is.na(ndvi)) %>%
   group_by(site) %>%
@@ -336,9 +351,7 @@ models_ndvi <- dat %>%
   select(site, n_obs, slope, intercept, r2, p_value) %>%
   ungroup()
 
-print(models_ndvi)
-
-# Model 3: Biomass ~ Temperature + NDVI + Treatment (combined)
+# Model 4: Combined Model (Biomass ~ Temperature + NDVI + Treatment)
 models_combined <- dat %>%
   filter(!is.na(biomass), !is.na(mean_temp_c), !is.na(ndvi)) %>%
   group_by(site) %>%
@@ -346,26 +359,28 @@ models_combined <- dat %>%
   mutate(
     fit = map(data, ~ lm(biomass ~ mean_temp_c + ndvi + treat, data = .x)),
     glance_out = map(fit, broom::glance),
+    coef_treat = map_dbl(fit, ~ coef(.x)["treatHEAT"]),
     r2 = map_dbl(glance_out, ~ .x$r.squared),
     p_value = map_dbl(glance_out, ~ .x$p.value),
     n_obs = map_int(glance_out, ~ as.integer(.x$nobs))
   ) %>%
-  select(site, n_obs, r2, p_value) %>%
+  select(site, n_obs, coef_treat, r2, p_value) %>%
   ungroup()
 
-print(models_combined)
 
-# Key findings:
-# Temperature + NDVI + Treatment together explain 60-69% of biomass variation
-# SITE2 responds stronger to the combined model (r² = 0.686 vs 0.598)
-# Treatment matters — the heat treatment affects biomass significantly
-# Synergy effect — together they're much better than individually
-# variation may come from other factors (canopy cover, substrate, humidity, etc.).
+# Model Comparison Summary
+comparison <- data.frame(
+  site = c(models_treat_only$site, models_temp$site, models_ndvi$site, models_combined$site),
+  model = c(rep("Treatment", nrow(models_treat_only)), 
+            rep("Temperature", nrow(models_temp)),
+            rep("NDVI", nrow(models_ndvi)),
+            rep("Combined", nrow(models_combined))),
+  r2 = c(models_treat_only$r2, models_temp$r2, models_ndvi$r2, models_combined$r2)
+)
 
 
-## PLOTS
-
-# COLOR PALLETTE
+# PLOTS
+# color palettes
 color_treat <- c("CTRL" = "#2E86AB", "HEAT" = "#A23B72")
 color_site <- c("SITE1" = "#06A77D", "SITE2" = "#D62828")
 
@@ -385,13 +400,11 @@ p1 <- dat %>%
   scale_color_manual(values = color_treat, name = "Treatment") +
   scale_fill_manual(values = color_treat, name = "Treatment") +
   labs(x = "Day", y = "Biomass (mean ± SE)", title = "Biomass Response Over Time") +
-  theme_minimal() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        strip.text = element_text(size = 11, face = "bold"))
+  theme_minimal()
 
-ggsave(file.path(plot_dir, "01_biomass_timeseries_not_per_plot.png"), p1, 
+ggsave(file.path(plot_dir, "01_biomass_timeseries.png"), p1, 
        width = 10, height = 5, dpi = 300)
+
 
 # Plot 2: Biomass vs Temperature (separated by treatment)
 p2 <- dat %>%
@@ -403,12 +416,9 @@ p2 <- dat %>%
   scale_fill_manual(values = color_treat, name = "Treatment") +
   labs(x = "Mean Temperature (°C)", y = "Biomass", 
        title = "Biomass vs Daily Mean Temperature") +
-  theme_minimal() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        strip.text = element_text(size = 11, face = "bold"))
+  theme_minimal()
 
-ggsave(file.path(plot_dir, "02_biomass_vs_temperature2.png"), p2, 
+ggsave(file.path(plot_dir, "02_biomass_vs_temperature.png"), p2, 
        width = 11, height = 6, dpi = 300)
 
 
@@ -422,49 +432,25 @@ p3 <- dat %>%
   scale_fill_manual(values = color_treat, name = "Treatment") +
   labs(x = "NDVI", y = "Biomass", 
        title = "Biomass vs Drone NDVI") +
-  theme_classic() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        strip.text = element_text(size = 11, face = "bold"))
+  theme_minimal()
 
-ggsave(file.path(plot_dir, "03_biomass_vs_ndvi2.png"), p3, 
+ggsave(file.path(plot_dir, "03_biomass_vs_ndvi.png"), p3, 
        width = 11, height = 6, dpi = 300)
 
 
-# Plot 4: Predicted vs Observed (Combined Model)
-dat_with_pred <- dat %>%
-  filter(!is.na(biomass), !is.na(mean_temp_c), !is.na(ndvi)) %>%
-  group_by(site) %>%
-  nest() %>%
-  mutate(
-    fit = map(data, ~ lm(biomass ~ mean_temp_c + ndvi + treat, data = .x)),
-    data = map2(data, fit, ~ .x %>% mutate(predicted = predict(.y)))
-  ) %>%
-  unnest(data) %>%
-  ungroup()
-
-p4 <- dat_with_pred %>%
-  ggplot(aes(x = predicted, y = biomass, color = treat, fill = treat)) +
-  geom_point(alpha = 0.5, size = 3, shape = 21, color = "black", stroke = 0.5) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray40", size = 1) +
-  facet_grid(treat ~ site) +
-  scale_color_manual(values = color_treat, name = "Treatment") +
-  scale_fill_manual(values = color_treat, name = "Treatment") +
-  labs(x = "Predicted Biomass", y = "Observed Biomass",
-       title = "Combined Model: Predicted vs Observed") +
-  theme_classic() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        strip.text = element_text(size = 11, face = "bold"))
-
-ggsave(file.path(plot_dir, "04_predicted_vs_observed2.png"), p4, 
-       width = 11, height = 6, dpi = 300)
-
-
-
-## EXPORT DATA
+## EXPORT
 write_csv(dat, file.path(output_dir, "clean_master.csv"))
-write_csv(qc_summary, file.path(output_dir, "qc_report.csv"))
-write_csv(models_temp, file.path(output_dir, "temp_models.csv"))
-write_csv(models_ndvi, file.path(output_dir, "ndvi_models.csv"))
-write_csv(models_combined, file.path(output_dir, "combined_models.csv"))
+write_csv(models_treat_only, file.path(output_dir, "01_model_treatment.csv"))
+write_csv(models_temp, file.path(output_dir, "02_model_temperature.csv"))
+write_csv(models_ndvi, file.path(output_dir, "03_model_ndvi.csv"))
+write_csv(models_combined, file.path(output_dir, "04_model_combined.csv"))
+write_csv(comparison, file.path(output_dir, "05_model_comparison.csv"))
+
+
+# Key findings:
+# Temperature + NDVI + Treatment together explain 60-69% of biomass variation
+# SITE2 responds stronger to the combined model (r² = 0.686 vs 0.598)
+# Treatment matters — the heat treatment affects biomass significantly
+# Synergy effect — together they're much better than individually
+# variation may come from other factors (canopy cover, substrate, humidity, etc.).
+
