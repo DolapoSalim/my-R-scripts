@@ -23,13 +23,15 @@ dir.create(plot_dir, showWarnings = F, recursive = T)
 getwd()
 
 
-# load data and inspect
+# load data
 biomass_wide <- read.csv("biomass_wide.csv")
 drone_ndvi <- read.csv("drone_ndvi.csv")
 logger_raw <- read.csv("logger_raw.csv")
 site_meta <- read.csv("site_meta.csv")
-View(biomass_wide)
 
+# Inspect data
+View(biomass_wide)
+summary(biomass_wide)
 
 
 # HELPER FUNCTIONS
@@ -108,10 +110,12 @@ biomass_long <- biomass_wide %>%
   select(site, treat, plot, rep, day, biomass_old, biomass, 
          qc_non_numeric_biomass, sample_id)
 
+summary(biomass_long)
+
 # Check for duplicate biomass records (same site/treat/plot/rep/day)
 biomass_duplicate <- biomass_long %>% 
-  group_by(site, treat, plot, rep, day) %>%
-  filter(n() > 1)
+    group_by(site, treat, plot, rep, day) %>%
+    filter(n() > 1)
 
 if (nrow(biomass_duplicate) > 0) {
   message("Warning: Found ", nrow(biomass_duplicate), " duplicates")
@@ -128,24 +132,310 @@ biomass_long_duplicate <- biomass_long %>%
 biomass_long_clean <- biomass_long_duplicate %>%
   select(site, treat, plot, rep, day, biomass)
 
-
+#quick inspect
 nrow(biomass_long_clean)
 
 
+
 ## SITE DATA
-site_meta_clean2 <- site_meta %>%
+site_meta_clean <- site_meta %>%
   mutate(
     site = column_fix(site),
     plot = normalize_plot_id(plot),
-    canopy_cover_percentage = parse_pct(canopy_cover_pct),
-    qc_canopy_high = !is.na(canopy_pct) & canopy_pct > 100,
+    canopy_cover_value = parse_pct(canopy_cover_pct),
+    qc_canopy_height = !is.na(canopy_cover_value) & canopy_cover_value > 100,
   ) %>%
-  
   group_by(site, plot) %>%
     # QC aggregation
-    mutate(qc_meta_duplicate = n() > 1) %>%
-    slice(1) %>%
-    ungroup()
+  mutate(qc_meta_duplicate = n() > 1) %>%
+  ungroup()
 
 
-message("Site metadata records: ", nrow(site_meta_clean2))
+site_meta_clean_filtered <- site_meta_clean %>%
+  group_by(site, plot) %>%
+  slice(1) %>%
+  ungroup()
+  
+message("Site metadata records: ", nrow(site_meta_clean))
+message("Filtered site metadata: ", nrow(site_meta_clean_filtered))
+
+
+
+## LOGGER_RAW DATA
+logger_raw_clean <- logger_raw %>%
+  mutate(
+    site = column_fix(site),
+    timestamp = parse_ts_robust(timestamp),
+    qc_timestamp_fail = is.na(timestamp)
+  ) %>%
+  filter(!is.na(timestamp))
+
+# Aggregate to site × day (mean across all readings)
+logger_day <- logger_raw_clean %>%
+  group_by(site, day) %>%
+  summarise(
+    mean_temp_c = mean(temp_c, na.rm = TRUE),
+    mean_humidity_pct = mean(humidity, na.rm = TRUE),
+    
+    # QC: number of logger readings on this day
+    n_logger_records = n(),
+    qc_low_logger_coverage = n_logger_records < 10,
+  ) %>%
+  ungroup()
+
+message("Logger days: ", nrow(logger_day))
+logger_new_data <- logger_day
+
+
+## DRONE NDVI DATA
+drone_ndvi_clean <- drone_ndvi %>%
+  mutate(
+    site = column_fix(site),
+    plot = normalize_plot_id(plot),
+    flight_id = column_fix(flight_id),
+    date_parsed = parse_date_robust(date),
+    qc_date_fail = is.na(date_parsed)
+  ) %>%
+  filter(!is.na(date_parsed))
+
+# QC: NDVI should be between -1 and 1
+drone_ndvi_clean <- drone_ndvi_clean %>%
+  mutate(
+    qc_ndvi_out_of_range = !is.na(ndvi) & (ndvi < -1 | ndvi > 1),
+    ndvi_clean = if_else(qc_ndvi_out_of_range, NA_real_, ndvi)
+  )
+
+# Check for duplicates
+drone_duplicate <- drone_ndvi_clean %>%
+  group_by(site, plot, date_parsed) %>%
+  filter(n() > 1)
+
+if (nrow(drone_duplicate) > 0) {
+  message("Note: Found ", nrow(drone_duplicate), " duplicate drone records (taking mean)")
+}
+
+# remove dupklicate take mean NDVI per site/plot/date
+drone_day <- drone_ndvi_clean %>%
+  group_by(site, plot, date_parsed) %>%
+  summarise(
+    ndvi = mean(ndvi_clean, na.rm = TRUE),
+    n_drone_records = n(),
+    qc_drone_duplicate = n() > 1,
+    qc_ndvi_out_of_range = any(qc_ndvi_out_of_range, na.rm = TRUE),
+  ) %>%
+  rename(date = date_parsed) %>%
+  ungroup()
+
+message("Drone readings: ", nrow(drone_day))
+
+
+## JOIN ALL DATA
+# Convert drone dates to day index
+# Then join: biomass × logger × drone all on site + plot + day
+# This allows comparing biomass, temperature, and NDVI on the same day
+
+
+# Get logger start date to convert drone dates to day index
+logger_start_date <- logger_raw_clean %>%
+  mutate(date = as.Date(timestamp)) %>%
+  pull(date) %>%
+  min()
+
+
+# Add day column to drone_day for joining
+drone_day_with_day <- drone_day %>%
+  mutate(
+    day = as.integer(as.Date(date) - logger_start_date)
+  )
+
+# Main analysis table: biomass as anchor
+dat <- biomass_long_clean %>%
+  # Join site metadata (on site + plot)
+  left_join(
+    site_meta_clean_filtered %>%
+      select(site, plot, shore_height_cm, canopy_cover_value, 
+             substrate, collector, qc_canopy_height, qc_meta_duplicate),
+    by = c("site", "plot")
+  ) %>%
+  
+  # Join logger data (on site + day)
+  left_join(
+    logger_day,
+    by = c("site", "day")
+  ) %>%
+  
+  # Join drone data (on site + plot + day)
+  left_join(
+    drone_day_with_day %>%
+      select(site, plot, day, date, ndvi, n_drone_records, qc_drone_duplicate, qc_ndvi_out_of_range),
+    by = c("site", "plot", "day")
+  )
+
+message("Joined records: ", nrow(dat))
+
+
+## QUALITY CONTROL REPORT
+
+# Overall QC summary
+qc_summary <- dat %>%
+  pivot_longer(starts_with("qc_"), names_to = "flag", values_to = "failed") %>%
+  group_by(flag) %>%
+  summarise(
+    n_failed = sum(failed, na.rm = TRUE),
+    pct_failed = round(mean(failed, na.rm = TRUE) * 100, 1),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(pct_failed))
+
+print(qc_summary)
+
+# Join diagnostics
+join_summary <- dat %>%
+  summarise(
+    total_records = n(),
+    with_biomass = sum(!is.na(biomass)),
+    with_logger = sum(!is.na(mean_temp_c)),
+    with_drone = sum(!is.na(ndvi)),
+    all_three = sum(!is.na(biomass) & !is.na(mean_temp_c) & !is.na(ndvi))
+  )
+print(join_summary)
+
+
+## MODELLING/ANALYSIS
+
+# Model 1: Biomass ~ Temperature
+models_temp <- dat %>%
+  filter(!is.na(biomass), !is.na(mean_temp_c)) %>%
+  group_by(site) %>%
+  nest() %>% # To create separate dataset per site
+  mutate(
+    fit = map(data, ~ lm(biomass ~ mean_temp_c, data = .x)),
+    glance_out = map(fit, broom::glance),
+    slope = map_dbl(fit, ~ coef(.x)["mean_temp_c"]),
+    intercept = map_dbl(fit, ~ coef(.x)["(Intercept)"]),
+    r2 = map_dbl(glance_out, ~ .x$r.squared),
+    p_value = map_dbl(glance_out, ~ .x$p.value),
+    n_obs = map_int(glance_out, ~ as.integer(.x$nobs))
+  ) %>%
+  select(site, n_obs, slope, intercept, r2, p_value) %>%
+  ungroup()
+
+print(models_temp)
+
+# Model 2: Biomass ~ NDVI
+models_ndvi <- dat %>%
+  filter(!is.na(biomass), !is.na(ndvi)) %>%
+  group_by(site) %>%
+  nest() %>%
+  mutate(
+    fit = map(data, ~ lm(biomass ~ ndvi, data = .x)),
+    glance_out = map(fit, broom::glance),
+    slope = map_dbl(fit, ~ coef(.x)["ndvi"]),
+    intercept = map_dbl(fit, ~ coef(.x)["(Intercept)"]),
+    r2 = map_dbl(glance_out, ~ .x$r.squared),
+    p_value = map_dbl(glance_out, ~ .x$p.value),
+    n_obs = map_int(glance_out, ~ as.integer(.x$nobs))
+  ) %>%
+  select(site, n_obs, slope, intercept, r2, p_value) %>%
+  ungroup()
+
+print(models_ndvi)
+
+# Model 3: Biomass ~ Temperature + NDVI + Treatment (combined)
+models_combined <- dat %>%
+  filter(!is.na(biomass), !is.na(mean_temp_c), !is.na(ndvi)) %>%
+  group_by(site) %>%
+  nest() %>%
+  mutate(
+    fit = map(data, ~ lm(biomass ~ mean_temp_c + ndvi + treat, data = .x)),
+    glance_out = map(fit, broom::glance),
+    r2 = map_dbl(glance_out, ~ .x$r.squared),
+    p_value = map_dbl(glance_out, ~ .x$p.value),
+    n_obs = map_int(glance_out, ~ as.integer(.x$nobs))
+  ) %>%
+  select(site, n_obs, r2, p_value) %>%
+  ungroup()
+
+print(models_combined)
+
+# Key findings:
+# Temperature + NDVI + Treatment together explain 60-69% of biomass variation
+# SITE2 responds stronger to the combined model (r² = 0.686 vs 0.598)
+# Treatment matters — the heat treatment affects biomass significantly
+# Synergy effect — together they're much better than individually
+# variation may come from other factors (canopy cover, substrate, humidity, etc.).
+
+
+## PLOTS
+
+# Plot 1: Biomass time series
+p1 <- dat %>%
+  group_by(site, plot, treat, day) %>%
+  summarise(mean_biomass = mean(biomass, na.rm = TRUE),
+            se_biomass = sd(biomass, na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(x = day, y = mean_biomass, color = treat)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = mean_biomass - se_biomass, 
+                    ymax = mean_biomass + se_biomass), width = 0.5) +
+  facet_grid(site ~ plot) +
+  scale_color_manual(values = c("CTRL" = "#2E86AB", "HEAT" = "#A23B72")) +
+  theme_classic()
+
+ggsave(file.path(output/plot_dir, "01_biomass_timeseries.png"), p1, 
+       width = 12, height = 8, dpi = 300)
+
+# Plot 2: Biomass vs Temperature
+p2 <- dat %>%
+  ggplot(aes(x = mean_temp_c, y = biomass)) +
+  geom_point(alpha = 0.6, na.rm = TRUE) +
+  geom_smooth(method = "lm", se = TRUE, na.rm = TRUE) +
+  facet_wrap(~ site) +
+  labs(x = "Mean temperature (C)", y = "Biomass") +
+  theme_classic()
+
+ggsave(file.path(plot_dir, "02_biomass_vs_temperature.png"), p2, 
+       width = 10, height = 6, dpi = 300)
+
+message("Saved: 02_biomass_vs_temperature.png")
+
+# Plot 3: Biomass vs NDVI
+p3 <- dat %>%
+  ggplot(aes(x = ndvi, y = biomass)) +
+  geom_point(alpha = 0.6, na.rm = TRUE) +
+  geom_smooth(method = "lm", se = TRUE, na.rm = TRUE) +
+  facet_wrap(~ site) +
+  labs(x = "NDVI", y = "Biomass") +
+  theme_classic()
+
+ggsave(file.path(plot_dir, "03_biomass_vs_ndvi.png"), p3, 
+       width = 10, height = 6, dpi = 300)
+
+
+# Plot 4: Predicted vs Observed (Combined Model)
+dat_with_pred <- dat %>%
+  filter(!is.na(biomass), !is.na(mean_temp_c), !is.na(ndvi)) %>%
+  group_by(site) %>%
+  nest() %>%
+  mutate(
+    fit = map(data, ~ lm(biomass ~ mean_temp_c + ndvi + treat, data = .x)),
+    data = map2(data, fit, ~ .x %>% mutate(predicted = predict(.y)))
+  ) %>%
+  unnest(data) %>%
+  ungroup()
+
+p4 <- dat_with_pred %>%
+  ggplot(aes(x = predicted, y = biomass)) +
+  geom_point(alpha = 0.6, na.rm = TRUE) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+  facet_wrap(~ site) +
+  labs(x = "Predicted Biomass", y = "Observed Biomass") +
+  theme_classic()
+
+ggsave(file.path(plot_dir, "04_predicted_vs_observed.png"), p4, 
+       width = 10, height = 6, dpi = 300)
+
+message("Saved: 04_predicted_vs_observed.png")
+
+message("\nAll plots saved to: ", plot_dir)
