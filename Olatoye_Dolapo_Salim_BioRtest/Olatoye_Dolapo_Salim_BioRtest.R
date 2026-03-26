@@ -1,3 +1,6 @@
+### BIO-R TEST
+### Dataset_b_Drone_Test
+
 getwd()
 
 
@@ -60,8 +63,8 @@ normalize_plot_id <- function(x) {
 # 'ND' strings in biomass columns; numeric parsing require
 parse_column <- function(x) { 
   as.character(x) %>%
-    str_trim() %>%
-    readr::parse_number()
+  str_trim() %>%
+  readr::parse_number()
 }
 
 # Remove % from canopy values
@@ -82,7 +85,7 @@ parse_ts_robust <- function(x) {
 
 ### BIOMASS DATA
 biomass_long <- biomass_wide %>%
-  mutate(
+    mutate(
     # clean columns
     site = column_fix(site),
     treat = column_fix(treat),
@@ -112,8 +115,8 @@ summary(biomass_long)
 
 # Check for duplicate biomass records (same site/treat/plot/rep/day)
 biomass_duplicate <- biomass_long %>% 
-  group_by(site, treat, plot, rep, day) %>%
-  filter(n() > 1)
+    group_by(site, treat, plot, rep, day) %>%
+    filter(n() > 1)
 
 if (nrow(biomass_duplicate) > 0) {
   message("Warning: Found ", nrow(biomass_duplicate), " duplicates")
@@ -144,7 +147,7 @@ site_meta_clean <- site_meta %>%
     qc_canopy_height = !is.na(canopy_cover_value) & canopy_cover_value > 100,
   ) %>%
   group_by(site, plot) %>%
-  # QC aggregation
+    # QC aggregation
   mutate(qc_meta_duplicate = n() > 1) %>%
   ungroup()
 

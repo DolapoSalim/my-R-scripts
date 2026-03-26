@@ -25,7 +25,7 @@ SITE2: r² = 0.686 (69% of variation explained!)
 Both p < 0.001 — highly significant
 Treatment effect persists: -0.380 to -0.564
 
-🔬 Ecological Interpretation:
+Ecological Interpretation:
 
 Heat stress dominates: Treatment is the STRONGEST single predictor (r² = 0.35-0.52), stronger than temperature!
 Site2 is more sensitive: -0.552 vs -0.381 — heat reduces biomass 45% more at SITE2
@@ -37,6 +37,6 @@ This suggests temperature and NDVI work together, not independently
 
 
 
-✅ Final Story:
+Final Story:
 "Heat treatment is the primary driver of biomass reduction (35-52% of variation). Temperature and NDVI add predictive value together (60-69%), but neither alone is as strong as the treatment effect. SITE2 organisms show greater heat sensitivity than SITE1."
 This is ecologically compelling — treat ment effect > environmental temperature! ✅
