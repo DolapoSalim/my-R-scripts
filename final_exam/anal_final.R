@@ -10,7 +10,6 @@ library(broom)
 library(beepr)
 conflicts_prefer(dplyr::filter)
 
-
 #Setup data directory
 data_dir <- file.path(getwd(), "final_exam")
 setwd(data_dir)
@@ -18,9 +17,7 @@ output_dir <- file.path(data_dir, "outputs")
 plot_dir <- file.path(output_dir, "plots")
 dir.create(plot_dir, showWarnings = F, recursive = T)
 
-
 getwd()
-
 
 # load data
 biomass_wide <- read.csv("biomass_wide.csv")
@@ -134,7 +131,6 @@ biomass_long_clean <- biomass_long_duplicate %>%
 nrow(biomass_long_clean)
 
 
-
 ## SITE DATA
 site_meta_clean <- site_meta %>%
   mutate(
@@ -200,6 +196,7 @@ drone_ndvi_clean <- drone_ndvi_clean %>%
     ndvi_clean = if_else(qc_ndvi_out_of_range, NA_real_, ndvi)
   )
 
+
 # Check for duplicates
 drone_duplicate <- drone_ndvi_clean %>%
   group_by(site, plot, date_parsed) %>%
@@ -233,7 +230,7 @@ message("Drone readings: ", nrow(drone_day))
 # Get logger start date to convert drone dates to day index
 logger_start_date <- logger_raw_clean %>%
   mutate(date = as.Date(timestamp)) %>%
-  pull(date) %>%
+  pull(date) %>% #pull() is similar to $.
   min()
 
 
